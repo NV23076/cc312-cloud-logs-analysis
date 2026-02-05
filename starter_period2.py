@@ -33,11 +33,23 @@ def parse_line(line: str):
     Returns (timestamp, level, service, message) OR None if format invalid.
     """
     # TODO 1: Implement parse_line (same rules as Period 1)
+    line = line.strip()
+    if not line:
+        return None
+   
+    parts = [part.strip() for part in line.split('|')]
+   
+    if len(parts) != 4:
+        return None
+   
+    return tuple(parts)
+
     pass
 
 
 def normalize_level(level: str) -> str:
     # TODO 2: return uppercase level
+    return level.upper()
     pass
 
 
@@ -58,42 +70,49 @@ def main():
     clean_lines = []  # store valid lines to write later
 
     # TODO 3: Read logs.txt line by line
-    # For each line:
-    #   - total_lines += 1
-    #   - parsed = parse_line(line)
-    #   - if parsed is None: invalid_lines += 1; continue
-    #   - normalize level
-    #   - if level NOT in ALLOWED_LEVELS: invalid_lines += 1; continue
-    #   - now it's valid:
-    #       valid_lines += 1
-    #       level_counts[level] += 1
-    #       service_counter[service] += 1
-    #       if level == "ERROR": error_message_counter[message] += 1
-    #       also store the ORIGINAL cleaned-format line into clean_lines
-    #
-    # Cleaned-format line should look exactly like:
-    # timestamp | LEVEL | service | message
-    #
-    # (LEVEL must be uppercase)
+    with LOG_FILE.open('r') as file:
+        for line in file:
+            total_lines += 1
+            parsed = parse_line(line)
+            if parsed is None:  # Invalid line format
+                invalid_lines += 1
+                continue
+       
+            timestamp, level, service, message = parsed
+            level = normalize_level(level)
+       
+            if level not in ALLOWED_LEVELS:  # Invalid level
+                invalid_lines += 1
+                continue
+       
+            valid_lines += 1
+            level_counts[level] += 1
+            service_counter[service] += 1
+
+            if level == "ERROR":
+                error_message_counter[message] += 1
+
+            clean_lines.append(f"{timestamp} | {level} | {service} | {message}")
 
     # TODO 4: Write clean_lines into clean_logs.txt (one per line)
+    with CLEAN_FILE.open('w') as clean_file:
+        for line in clean_lines:
+            clean_file.write(line + "\n")
 
     # TODO 5: Build the summary dictionary with this exact structure:
-    # {
-    #   "total_lines": ...,
-    #   "valid_lines": ...,
-    #   "invalid_lines": ...,
-    #   "levels": {"INFO":..., "WARN":..., "ERROR":...},
-    #   "top_services": [{"service":..., "count":...}, ... up to 3],
-    #   "top_errors": [{"message":..., "count":...}, ... up to 3]
-    # }
+    summary = {
+        "total_lines": total_lines,
+        "valid_lines": valid_lines,
+        "invalid_lines": invalid_lines,
+        "levels": level_counts,
+        "top_services": [{"service": service, "count": count} for service, count in service_counter.most_common(3)],
+        "top_errors": [{"message": message, "count": count} for message, count in error_message_counter.most_common(3)],
+    }
 
     # TODO 6: Save summary.json using json.dump(..., indent=2)
-
-    # Optional self-check prints (you can keep them):
-    # print("Valid:", valid_lines, "Invalid:", invalid_lines)
+    with SUMMARY_FILE.open('w') as summary_file:
+        json.dump(summary, summary_file, indent=2)
     pass
-
 
 if __name__ == "__main__":
     main()
